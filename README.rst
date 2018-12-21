@@ -83,6 +83,7 @@ Supported Coins
 - Sibcoin - SIB
 - SmartCash - SMART
 - SnowGem - XSG
+- Syscoin - SYS
 - TokenPay - TPAY
 - Trezarcoin - TZC
 - Uniform Fiscal Object - UFO

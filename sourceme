@@ -1,0 +1,5 @@
+COIN=syscoin
+DB_DIRECTORY=/home/sschepis/Development/BCF/electrumx/db
+DAEMON_URL=http://user:password@192.168.0.10:8368
+DB_ENGINE=rocksdb
+export COIN DB_DIRECTORY DAEMON_URL DB_ENGINE

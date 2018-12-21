@@ -207,7 +207,7 @@ class Deserializer(object):
 
 class TxSegWit(namedtuple("Tx", "version marker flag inputs outputs "
                           "witness locktime")):
-    '''Class representing a SegWit transaction.'''
+    pass
 
 
 class DeserializerSegWit(Deserializer):
@@ -293,6 +293,46 @@ class DeserializerAuxPow(Deserializer):
         return self._read_nbytes(header_end)
 
 
+class DeserializerSyscoin(DeserializerAuxPow):
+
+    # Transactions that contain Syscoin data carrying outputs,
+    # have a version of 0x7400
+    SYSCOIN_TX_VERSION = 0x7400
+
+    def read_tx_and_hash(self):
+        start = self.cursor
+        return self.read_tx(get_hash=True), self.TX_HASH_FN(self.binary[start:self.cursor])
+
+    def read_tx(self,get_hash=False):
+        version = self._read_le_int32()
+        return Tx(
+            version,  # version
+            self._read_inputs(),    # inputs
+            self._read_outputs(get_hash,tx_version=version),   # outputs
+            self._read_le_uint32()  # locktime
+        )
+
+    def _read_outputs(self,get_hash, tx_version):
+        read_output = self._read_output
+        return [read_output(get_hash,tx_version) for i in range(self._read_varint())]
+
+    def _read_output(self,get_hash, tx_version):
+        value = self._read_le_int64()
+        start = self.cursor
+        script_pub_key = self._read_varbytes()
+        if tx_version == self.SYSCOIN_TX_VERSION \
+                and script_pub_key[0] == OpCodes.OP_RETURN \
+                and get_hash is True:
+            self.binary = self.binary[:start] + bytes([1]) + bytes([OpCodes.OP_RETURN]) + self.binary[self.cursor:]
+            self.binary_length = len(self.binary)
+            self.cursor = start + 2
+
+        return TxOutput(
+            value,  # value
+            script_pub_key,  # pk_script
+        )
+
+
 class DeserializerAuxPowSegWit(DeserializerSegWit, DeserializerAuxPow):
     pass
 
@@ -316,6 +356,7 @@ class DeserializerEquihashSegWit(DeserializerSegWit, DeserializerEquihash):
 
 class TxJoinSplit(namedtuple("Tx", "version inputs outputs locktime")):
     '''Class representing a JoinSplit transaction.'''
+    pass
 
 
 class DeserializerZcash(DeserializerEquihash):
@@ -367,6 +408,7 @@ class DeserializerZcash(DeserializerEquihash):
 
 class TxTime(namedtuple("Tx", "version time inputs outputs locktime")):
     '''Class representing transaction that has a time field.'''
+    pass
 
 
 class DeserializerTxTime(Deserializer):
@@ -383,6 +425,7 @@ class DeserializerTxTime(Deserializer):
 class TxTrezarcoin(
         namedtuple("Tx", "version time inputs outputs locktime txcomment")):
     '''Class representing transaction that has a time and txcomment field.'''
+    pass
 
 
 class DeserializerTrezarcoin(Deserializer):

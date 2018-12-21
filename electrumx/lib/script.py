@@ -40,7 +40,7 @@ class ScriptError(Exception):
     '''Exception used for script errors.'''
 
 
-OpCodes = Enumeration("Opcodes", [
+common_enums = [
     ("OP_0", 0), ("OP_PUSHDATA1", 76),
     "OP_PUSHDATA2", "OP_PUSHDATA4", "OP_1NEGATE",
     "OP_RESERVED",
@@ -66,8 +66,19 @@ OpCodes = Enumeration("Opcodes", [
     "OP_CHECKMULTISIGVERIFY",
     "OP_NOP1",
     "OP_CHECKLOCKTIMEVERIFY", "OP_CHECKSEQUENCEVERIFY"
-])
+]
 
+OpCodes = Enumeration("Opcodes", common_enums)
+
+syscoin_enums = common_enums.copy()
+syscoin_enums.append(("OP_SYSCOIN_ALIAS", 1))
+syscoin_enums.append(("OP_SYSCOIN_CERT", 2))
+syscoin_enums.append(("OP_SYSCOIN_ESCROW", 3))
+syscoin_enums.append(("OP_SYSCOIN_OFFER", 4))
+syscoin_enums.append(("OP_SYSCOIN_ASSET", 5))
+syscoin_enums.append(("OP_SYSCOIN_ASSET_ALLOCATION", 6))
+
+SyscoinOpCodes = Enumeration("SyscoinOpCodes", syscoin_enums)
 
 # Paranoia to make it hard to create bad scripts
 assert OpCodes.OP_DUP == 0x76
@@ -249,3 +260,73 @@ class Script(object):
             else:
                 print('{} {} ({:d} bytes)'
                       .format(name, data.hex(), len(data)))
+
+
+class SyscoinScript(Script):
+    @classmethod
+    def opcode_name(cls, opcode):
+        if OpCodes.OP_0 < opcode < OpCodes.OP_PUSHDATA1:
+            return 'OP_{:d}'.format(opcode)
+        try:
+            return OpCodes.whatis(opcode)
+        except KeyError:
+            return 'OP_UNKNOWN:{:d}'.format(opcode)
+
+    @classmethod
+    def get_ops(cls, script):
+        ops = []
+        n = 1
+        length_script = len(script)
+        found = False
+        if length_script > 1:
+            if script[0] == 82:
+                if script[1] >= 82 or script[1] <= 91:
+                    n += 1
+                    while n < length_script:
+                        op = script[n]
+                        if op == OpCodes.OP_DROP or op == OpCodes.OP_2DROP:
+                            found = True
+                            break
+                        if op > OpCodes.OP_PUSHDATA4:
+                            n += 1
+                            break
+        if not found:
+            n = 0
+        else:
+            while n < length_script:
+                op = script[n]
+                if op != OpCodes.OP_DROP and op != OpCodes.OP_2DROP:
+                    break
+                n += 1
+
+        # The unpacks or script[n] below throw on truncated scripts
+        try:
+            n = 0
+            while n < length_script:
+                op = script[n]
+                n += 1
+
+                if op <= OpCodes.OP_PUSHDATA4:
+                    # Raw bytes follow
+                    if op < OpCodes.OP_PUSHDATA1:
+                        dlen = op
+                    elif op == OpCodes.OP_PUSHDATA1:
+                        dlen = script[n]
+                        n += 1
+                    elif op == OpCodes.OP_PUSHDATA2:
+                        dlen, = struct.unpack('<H', script[n: n + 2])
+                        n += 2
+                    else:
+                        dlen, = struct.unpack('<I', script[n: n + 4])
+                        n += 4
+                    if n + dlen > length_script:
+                        raise IndexError
+                    op = (op, script[n:n + dlen])
+                    n += dlen
+
+                ops.append(op)
+        except Exception:
+            # Truncated script; e.g. tx_hash
+            # ebc9fa1196a59e192352d76c0f6e73167046b9d37b8302b6bb6968dfd279b767
+            raise ScriptError('truncated script')
+        return ops

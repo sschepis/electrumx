@@ -48,7 +48,7 @@ import electrumx.server.block_processor as block_proc
 import electrumx.server.daemon as daemon
 from electrumx.server.session import (ElectrumX, DashElectrumX,
                                       SmartCashElectrumX)
-
+from electrumx.lib.script import _match_ops, Script, ScriptError, SyscoinScript
 
 Block = namedtuple("Block", "raw header transactions")
 OP_RETURN = OpCodes.OP_RETURN
@@ -740,7 +740,6 @@ class Namecoin(AuxPowMixin, Coin):
 
     @classmethod
     def split_name_script(cls, script):
-        from electrumx.lib.script import _match_ops, Script, ScriptError
 
         try:
             ops = Script.get_ops(script)
@@ -2515,3 +2514,174 @@ class MyriadcoinTestnet(Myriadcoin):
     WIF_BYTE = bytes.fromhex("ef")
     GENESIS_HASH = ('0000017ce2a79c8bddafbbe47c004aa9'
                     '2b20678c354b34085f62b762084b9788')
+
+
+# Source: syscoin.org
+class Syscoin(AuxPowMixin, Coin):
+    NAME = "Syscoin"
+    SHORTNAME = "SYS"
+    NET = "mainnet"
+    XPUB_VERBYTES = bytes.fromhex("0488b21e")
+    XPRV_VERBYTES = bytes.fromhex("0488ade4")
+    P2PKH_VERBYTE = bytes.fromhex("3f")
+    P2SH_VERBYTES = [bytes.fromhex("05")]
+    WIF_BYTE = bytes.fromhex("80")
+    GENESIS_HASH = ('000006e5c08d6d2414435b2942102667'
+                    '53b05a75f90e926dd5e6082306812622')
+    RPC_PORT = 8368
+    TX_COUNT = 486588
+    TX_COUNT_HEIGHT = 318146
+    TX_PER_BLOCK = 10
+    REORG_LIMIT = 2000
+    BLOCK_PROCESSOR = block_proc.SyscoinBlockProcessor
+    DESERIALIZER = lib_tx.DeserializerSyscoin
+
+    # alias service
+    OP_ALIAS_ACTIVATE = 0x01
+    OP_ALIAS_UPDATE = 0x02
+
+    # offer service
+    OP_OFFER_ACTIVATE = 0x01
+    OP_OFFER_UPDATE = 0x02
+
+    # cert service
+    OP_CERT_ACTIVATE = 0x01
+    OP_CERT_UPDATE = 0x02
+    OP_CERT_TRANSFER = 0x03
+
+    # escrow service
+    OP_ESCROW_ACTIVATE = 0x01
+    OP_ESCROW_RELEASE = 0x02
+    OP_ESCROW_REFUND = 0x03
+    OP_ESCROW_REFUND_COMPLETE = 0x04
+    OP_ESCROW_RELEASE_COMPLETE = 0x05
+    OP_ESCROW_BID = 0x06
+    OP_ESCROW_ACKNOWLEDGE = 0x07
+    OP_ESCROW_ADD_SHIPPING = 0x08
+    OP_ESCROW_FEEDBACK = 0x09
+
+    # asset service
+    OP_ASSET_ACTIVATE = 0x01
+    OP_ASSET_UPDATE = 0x02
+    OP_ASSET_TRANSFER = 0x03
+    OP_ASSET_SEND = 0x04
+    OP_ASSET_COLLECT_INTEREST = 0x02
+    OP_ASSETA_SEND = 0x01
+
+    # service ops
+    OP_SYSCOIN_ALIAS = 0x01
+    OP_SYSCOIN_CERT = 0x02
+    OP_SYSCOIN_ESCROW = 0x03
+    OP_SYSCOIN_OFFER = 0x04
+    OP_SYSCOIN_ASSET = 0x05
+    OP_SYSCOIN_ASSETA = 0x06
+
+
+    @classmethod
+    def split_syscoin_script(cls, script):
+        try:
+            ops = SyscoinScript.get_ops(script)
+        except ScriptError:
+            return None, script
+
+        match = _match_ops
+
+        # Opcode sequences for asset operations
+        ASSET_ACTIVATE_O = [Syscoin.OP_SYSCOIN_ASSET, Syscoin.OP_ASSET_ACTIVATE, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+        ASSET_UPDATE_O = [Syscoin.OP_SYSCOIN_ASSET, Syscoin.OP_ASSET_UPDATE, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+        ASSET_TRANSFER_O = [Syscoin.OP_SYSCOIN_ASSET, Syscoin.OP_ASSET_TRANSFER, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+        ASSET_SEND_O = [Syscoin.OP_SYSCOIN_ASSET, Syscoin.OP_ASSET_SEND, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+
+        # opcode sequences for asset allocation operations
+        ASSETA_SEND_0 = [Syscoin.OP_SYSCOIN_ASSETA, Syscoin.OP_ASSETA_SEND, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+
+        # array of ops that we are looking for
+        syscoin_ops_def = [ASSET_ACTIVATE_O, ASSET_UPDATE_O, ASSET_TRANSFER_O, ASSET_SEND_O, ASSETA_SEND_0]
+
+        script_op_fam = script_op_type = script_pushdata = script_op_count = None
+
+        # conveniently, all the above syscoin ops have the same format - syscoin op, service op, data, 2DROP, DROP
+        # the following if statement looks for a syscoin service format and there should be one if statement
+        # per syscoin service message format type
+        for el in syscoin_ops_def:
+            if match(ops[:len(el)], el):
+                script_op_fam = ops[0]
+                script_op_type = ops[1]
+                script_pushdata = ops[2]
+                script_op_count = len(el)
+
+        # if op_type is None then this isn't a Syscoin transaction and we can bail
+        if script_op_type is None:
+            return None, script
+
+        # Find the end position of the name data
+        n = 0
+        for i in range(script_op_count):
+            # Content of this loop is copied from Script.get_ops's loop
+            op = script[n]
+            n += 1
+
+            if op <= OpCodes.OP_PUSHDATA4:
+                # Raw bytes follow
+                if op < OpCodes.OP_PUSHDATA1:
+                    dlen = op
+                elif op == OpCodes.OP_PUSHDATA1:
+                    dlen = script[n]
+                    n += 1
+                elif op == OpCodes.OP_PUSHDATA2:
+                    dlen, = struct.unpack('<H', script[n: n + 2])
+                    n += 2
+                else:
+                    dlen, = struct.unpack('<I', script[n: n + 4])
+                    n += 4
+                if n + dlen > len(script):
+                    raise IndexError
+                op = (op, script[n:n + dlen])
+                n += dlen
+        # Strip the name data to yield the address script
+        value_script = script[n:]
+
+        if script_pushdata is None:
+            return None, value_script
+
+        normalized_name_op_script = bytearray()
+        normalized_name_op_script.append(script_op_fam)
+        normalized_name_op_script.append(script_op_type)
+        normalized_name_op_script.extend(Script.push_data(script_pushdata[1]))
+        normalized_name_op_script.extend(Script.push_data(bytes([])))
+        normalized_name_op_script.append(OpCodes.OP_2DROP)
+        normalized_name_op_script.append(OpCodes.OP_DROP)
+        normalized_name_op_script.append(OpCodes.OP_RETURN)
+
+        return bytes(normalized_name_op_script), value_script
+
+    @classmethod
+    def hashX_from_script(cls, script):
+        sys_op_script, address_script = cls.split_syscoin_script(script)
+        return super().hashX_from_script(address_script)
+
+    @classmethod
+    def address_from_script(cls, script):
+        sys_op_script, address_script = cls.split_syscoin_script(script)
+        return super().hashX_from_script(address_script)
+
+    @classmethod
+    def sys_hashX_from_script(cls, script):
+        sys_op_script, address_script = cls.split_syscoin_script(script)
+        if sys_op_script is None:
+            return None
+        return super().hashX_from_script(sys_op_script)
+
+
+class SyscoinTestnet(Syscoin):
+    NAME = "Syscoin"
+    SHORTNAME = "tSYS"
+    NET = "testnet"
+    XPUB_VERBYTES = bytes.fromhex("043587cf")
+    XPRV_VERBYTES = bytes.fromhex("04358394")
+    P2PKH_VERBYTE = bytes.fromhex("41")
+    P2SH_VERBYTES = [bytes.fromhex("c4")]
+    WIF_BYTE = bytes.fromhex("ef")
+    GENESIS_HASH = ('00000478aace753a4709f7503b5b5834'
+                    '56a5a8635e989d7f899eb000bbea9fd4')
+    RPC_PORT = 18368

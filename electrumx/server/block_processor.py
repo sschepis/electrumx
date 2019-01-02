@@ -715,21 +715,26 @@ class NamecoinBlockProcessor(BlockProcessor):
 
 
 class SyscoinBlockProcessor(BlockProcessor):
-    # SYSCOIN_TX_VERSION = 0x7400
+    SYSCOIN_TX_VERSION = 0x7400
 
     def advance_txs(self, txs):
         result = super().advance_txs(txs)
 
+        # I had to put this here because I was getting empty transactions
+        # that alone is weird but i couldn't figure out why
+        if len(txs) == 0:
+            return
+
         tx_num = self.tx_count - len(txs)
-        script_name_hashX = self.coin.name_hashX_from_script
+        script_syscoin_hashX = self.coin.sys_hashX_from_script
         update_touched = self.touched.update
         hashXs_by_tx = []
         append_hashXs = hashXs_by_tx.append
 
         for tx, tx_hash in txs:
 
-            # if tx.version == self.SYSCOIN_TX_VERSION:
-            #     continue
+            #if tx.version == self.SYSCOIN_TX_VERSION:
+            #    continue
 
             hashXs = []
             append_hashX = hashXs.append
@@ -737,7 +742,7 @@ class SyscoinBlockProcessor(BlockProcessor):
             # Add the new UTXOs and associate them with the name script
             for idx, txout in enumerate(tx.outputs):
                 # Get the hashX of the name script.  Ignore non-name scripts.
-                hashX = script_name_hashX(txout.pk_script)
+                hashX = script_syscoin_hashX(txout.pk_script)
                 if hashX:
                     append_hashX(hashX)
 

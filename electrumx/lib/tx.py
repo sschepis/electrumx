@@ -207,7 +207,7 @@ class Deserializer(object):
 
 class TxSegWit(namedtuple("Tx", "version marker flag inputs outputs "
                           "witness locktime")):
-    pass
+    '''Class representing a SegWit transaction.'''
 
 
 class DeserializerSegWit(Deserializer):
@@ -308,15 +308,15 @@ class DeserializerSyscoin(DeserializerAuxPow):
         return Tx(
             version,  # version
             self._read_inputs(),    # inputs
-            self._read_outputs(get_hash,tx_version=version),   # outputs
+            self._read_outputs(get_hash, tx_version=version),   # outputs
             self._read_le_uint32()  # locktime
         )
 
-    def _read_outputs(self,get_hash, tx_version):
+    def _read_outputs(self, get_hash, tx_version):
         read_output = self._read_output
-        return [read_output(get_hash,tx_version) for i in range(self._read_varint())]
+        return [read_output(get_hash, tx_version) for i in range(self._read_varint())]
 
-    def _read_output(self,get_hash, tx_version):
+    def _read_output(self, get_hash, tx_version):
         value = self._read_le_int64()
         start = self.cursor
         script_pub_key = self._read_varbytes()

@@ -2648,7 +2648,6 @@ class Syscoin(AuxPowMixin, Coin):
         normalized_name_op_script.append(script_op_fam)
         normalized_name_op_script.append(script_op_type)
         normalized_name_op_script.extend(Script.push_data(script_pushdata[1]))
-        normalized_name_op_script.extend(Script.push_data(bytes([])))
         normalized_name_op_script.append(OpCodes.OP_2DROP)
         normalized_name_op_script.append(OpCodes.OP_DROP)
         normalized_name_op_script.append(OpCodes.OP_RETURN)

@@ -238,8 +238,7 @@ class Daemon(object):
 
     async def getnetworkinfo(self):
         '''Return the result of the 'getnetworkinfo' RPC call.'''
-        network_info = await self._send_single('getnetworkinfo')
-        return network_info
+        return await self._send_single('getnetworkinfo')
 
     async def relayfee(self):
         '''The minimum fee a low-priority tx must pay in order to be accepted
@@ -250,9 +249,8 @@ class Daemon(object):
     async def getrawtransaction(self, hex_hash, verbose=False):
         '''Return the serialized raw transaction with the given hash.'''
         # Cast to int because some coin daemons are old and require it
-        tx = self._send_single('getrawtransaction',
-                                       (hex_hash, int(verbose)))
-        return tx
+        return self._send_single('getrawtransaction', (hex_hash, int(verbose)))
+
     async def getrawtransactions(self, hex_hashes, replace_errs=True):
         '''Return the serialized raw transactions with the given hashes.
 

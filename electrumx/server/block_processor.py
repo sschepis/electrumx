@@ -464,6 +464,7 @@ class BlockProcessor(object):
             self.db.tx_counts.pop()
 
         self.logger.info('backed up to height {:,d}'.format(self.height))
+        self.backup_flush()
 
     def backup_txs(self, txs):
         # Prevout values, in order down the block (coinbase first if present)
@@ -715,44 +716,32 @@ class NamecoinBlockProcessor(BlockProcessor):
 
 
 class SyscoinBlockProcessor(BlockProcessor):
-    SYSCOIN_TX_VERSION = 0x7400
-
-    def advance_txs(self, txs):
-        result = super().advance_txs(txs)
-
-        # I had to put this here because I was getting empty transactions
-        # that alone is weird but i couldn't figure out why
-        if len(txs) == 0:
-            return
-
-        tx_num = self.tx_count - len(txs)
-        script_syscoin_hashX = self.coin.sys_hashX_from_script
-        update_touched = self.touched.update
-        hashXs_by_tx = []
-        append_hashXs = hashXs_by_tx.append
-
-        for tx, tx_hash in txs:
-
-            #if tx.version == self.SYSCOIN_TX_VERSION:
-            #    continue
-
-            hashXs = []
-            append_hashX = hashXs.append
-
-            # Add the new UTXOs and associate them with the name script
-            for idx, txout in enumerate(tx.outputs):
-                # Get the hashX of the name script.  Ignore non-name scripts.
-                hashX = script_syscoin_hashX(txout.pk_script)
-                if hashX:
-                    append_hashX(hashX)
-
-            append_hashXs(hashXs)
-            update_touched(hashXs)
-            tx_num += 1
-
-        self.db.history.add_unflushed(hashXs_by_tx, self.tx_count - len(txs))
-
-        return result
+    pass
+    # def advance_txs(self, txs):
+    #     result = super().advance_txs(txs)
+    #
+    #     tx_num = self.tx_count - len(txs)
+    #     update_touched = self.touched.update
+    #     hash_xs_by_tx = []
+    #
+    #     for tx, tx_hash in txs:
+    #
+    #         hash_xs = []
+    #
+    #         # Add the new UTXOs and associate them with the name script
+    #         for idx, txout in enumerate(tx.outputs):
+    #             # Get the hashX of the name script.  Ignore non-name scripts.
+    #             hash_x = self.coin.sys_hashX_from_script(txout.pk_script)
+    #             if hash_x:
+    #                 hash_xs.append(hash_x)
+    #
+    #         hash_xs_by_tx.append(hash_xs)
+    #         update_touched(hash_xs)
+    #         tx_num += 1
+    #
+    #     self.db.history.add_unflushed(hash_xs_by_tx, self.tx_count - len(txs))
+    #
+    #     return result
 
 
 class LTORBlockProcessor(BlockProcessor):

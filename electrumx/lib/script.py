@@ -265,7 +265,7 @@ class Script(object):
 class SyscoinScript(Script):
     @classmethod
     def opcode_name(cls, opcode):
-        if OpCodes.OP_0 < opcode < OpCodes.OP_PUSHDATA1:
+        if OpCodes.OP_1 <= opcode <= OpCodes.OP_16:
             return 'OP_{:d}'.format(opcode)
         try:
             return OpCodes.whatis(opcode)
@@ -278,9 +278,10 @@ class SyscoinScript(Script):
         n = 1
         length_script = len(script)
         found = False
+
         if length_script > 1:
-            if script[0] == 82:
-                if script[1] >= 82 or script[1] <= 91:
+            if OpCodes.OP_1 <= script[0] <= OpCodes.OP_16:
+                if OpCodes.OP_1 <= script[1] <= OpCodes.OP_16:
                     n += 1
                     while n < length_script:
                         op = script[n]
@@ -301,11 +302,9 @@ class SyscoinScript(Script):
 
         # The unpacks or script[n] below throw on truncated scripts
         try:
-            n = 0
             while n < length_script:
                 op = script[n]
                 n += 1
-
                 if op <= OpCodes.OP_PUSHDATA4:
                     # Raw bytes follow
                     if op < OpCodes.OP_PUSHDATA1:

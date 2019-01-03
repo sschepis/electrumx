@@ -303,7 +303,7 @@ class DeserializerSyscoin(DeserializerAuxPow):
         start = self.cursor
         return self.read_tx(get_hash=True), self.TX_HASH_FN(self.binary[start:self.cursor])
 
-    def read_tx(self,get_hash=False):
+    def read_tx(self, get_hash=False):
         version = self._read_le_int32()
         return Tx(
             version,  # version
@@ -313,13 +313,13 @@ class DeserializerSyscoin(DeserializerAuxPow):
         )
 
     def _read_outputs(self, get_hash, tx_version):
-        read_output = self._read_output
-        return [read_output(get_hash, tx_version) for i in range(self._read_varint())]
+        return [self._read_output(get_hash, tx_version) for i in range(self._read_varint())]
 
     def _read_output(self, get_hash, tx_version):
         value = self._read_le_int64()
         start = self.cursor
         script_pub_key = self._read_varbytes()
+
         if tx_version == self.SYSCOIN_TX_VERSION \
                 and script_pub_key[0] == OpCodes.OP_RETURN \
                 and get_hash is True:

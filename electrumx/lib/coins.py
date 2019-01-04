@@ -48,7 +48,7 @@ import electrumx.server.block_processor as block_proc
 import electrumx.server.daemon as daemon
 from electrumx.server.session import (ElectrumX, DashElectrumX,
                                       SmartCashElectrumX)
-from electrumx.lib.script import _match_ops, Script, ScriptError, SyscoinScript
+from electrumx.lib.script import _match_ops, Script, ScriptError
 
 Block = namedtuple("Block", "raw header transactions")
 OP_RETURN = OpCodes.OP_RETURN
@@ -2516,7 +2516,6 @@ class MyriadcoinTestnet(Myriadcoin):
                     '2b20678c354b34085f62b762084b9788')
 
 
-# Source: syscoin.org
 class Syscoin(AuxPowMixin, Coin):
     NAME = "Syscoin"
     SHORTNAME = "SYS"
@@ -2535,92 +2534,159 @@ class Syscoin(AuxPowMixin, Coin):
     REORG_LIMIT = 2000
 
     BLOCK_PROCESSOR = block_proc.SyscoinBlockProcessor
-    DESERIALIZER = lib_tx.DeserializerSyscoin
 
-    # Script OP_1 hexval for translations
+    # alias service
+    OP_ALIAS_ACTIVATE = 0x01
+    OP_ALIAS_UPDATE = 0x02
+
+    # offer service
+    OP_OFFER_ACTIVATE = 0x01
+    OP_OFFER_UPDATE = 0x02
+
+    # cert service
+    OP_CERT_ACTIVATE = 0x01
+    OP_CERT_UPDATE = 0x02
+    OP_CERT_TRANSFER = 0x03
+
+    # escrow service
+    OP_ESCROW_ACTIVATE = 0x01
+    OP_ESCROW_RELEASE = 0x02
+    OP_ESCROW_REFUND = 0x03
+    OP_ESCROW_REFUND_COMPLETE = 0x04
+    OP_ESCROW_RELEASE_COMPLETE = 0x05
+    OP_ESCROW_BID = 0x06
+    OP_ESCROW_ACKNOWLEDGE = 0x07
+    OP_ESCROW_ADD_SHIPPING = 0x08
+    OP_ESCROW_FEEDBACK = 0x09
+
+    # asset service
+    OP_ASSET_ACTIVATE = 0x01
+    OP_ASSET_UPDATE = 0x02
+    OP_ASSET_TRANSFER = 0x03
+    OP_ASSET_SEND = 0x04
+    OP_ASSET_COLLECT_INTEREST = 0x02
+    OP_ASSETA_SEND = 0x01
+
+    # service ops
+    OP_SYSCOIN_ALIAS = 0x01
+    OP_SYSCOIN_CERT = 0x02
+    OP_SYSCOIN_ESCROW = 0x03
+    OP_SYSCOIN_OFFER = 0x04
+    OP_SYSCOIN_ASSET = 0x05
+    OP_SYSCOIN_ASSETA = 0x06
+
     OP_1 = 0x51
 
-    # @classmethod
-    # def encode_op_n(cls, op_n):
-    #     return cls.OP_1 + (op_n - 1)
-    #
-    # @classmethod
-    # def decode_op_n(cls, op_n):
-    #     return op_n - (cls.OP_1 - 1)
+    # Opcode sequences for asset operations
+    ASSET_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ASSET_UPDATE_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_UPDATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ASSET_TRANSFER_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_TRANSFER - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ASSET_SEND_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_SEND - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ASSETA_SEND_O = [OP_1 + OP_SYSCOIN_ASSETA - 1, OP_1 + OP_ASSETA_SEND - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
 
-    # @classmethod
-    # def split_syscoin_script(cls, script):
-    #     try:
-    #         ops = SyscoinScript.get_ops(script)
-    #     except ScriptError:
-    #         return None, script
-    #
-    #     # array of ops that we are looking for
-    #     syscoin_ops_def = [
-    #         cls.encode_op_n(cls.OP_SYSCOIN_ALIAS),
-    #         cls.encode_op_n(cls.OP_SYSCOIN_CERT),
-    #         cls.encode_op_n(cls.OP_SYSCOIN_ESCROW),
-    #         cls.encode_op_n(cls.OP_SYSCOIN_OFFER),
-    #         cls.encode_op_n(cls.OP_SYSCOIN_ASSET),
-    #         cls.encode_op_n(cls.OP_SYSCOIN_ASSETA)
-    #     ]
-    #
-    #     script_op_fam = script_op_type = script_pushdata = script_op_count = None
-    #
-    #     if OpCodes.OP_1 <= ops[0] <= OpCodes.OP_16:
-    #         script_op_fam = cls.decode_op_n(ops[0])
-    #         script_op_type = cls.decode_op_n(ops[1])
-    #         script_pushdata = ops[2]
-    #         script_op_count = len(ops)
-    #
-    #     if script_op_fam is None:
-    #         return None, script
-    #
-    #     # Find the end position of the name data
-    #     n = 0
-    #     for i in range(script_op_count):
-    #         # Content of this loop is copied from Script.get_ops's loop
-    #         op = script[n]
-    #         n += 1
-    #
-    #         if op <= OpCodes.OP_PUSHDATA4:
-    #             # Raw bytes follow
-    #             if op < OpCodes.OP_PUSHDATA1:
-    #                 dlen = op
-    #             elif op == OpCodes.OP_PUSHDATA1:
-    #                 dlen = script[n]
-    #                 n += 1
-    #             elif op == OpCodes.OP_PUSHDATA2:
-    #                 dlen, = struct.unpack('<H', script[n: n + 2])
-    #                 n += 2
-    #             else:
-    #                 dlen, = struct.unpack('<I', script[n: n + 4])
-    #                 n += 4
-    #             if n + dlen > len(script):
-    #                 raise IndexError
-    #             op = (op, script[n:n + dlen])
-    #             n += dlen
-    #
-    #     # Strip the name data to yield the address script
-    #     value_script = script[n:]
-    #     return None, value_script
+    # Opcode sequences for alias operations
+    ALIAS_NEW_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ALIAS_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, -1, -1, -1,
+                        OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
+    ALIAS_UPDATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_UPDATE - 1, -1, -1, -1, -1,
+                      OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
 
-    # @classmethod
-    # def hashX_from_script(cls, script):
-    #     sys_op_script, address_script = cls.split_syscoin_script(script)
-    #     return super().hashX_from_script(address_script)
-    #
-    # @classmethod
-    # def address_from_script(cls, script):
-    #     sys_op_script, address_script = cls.split_syscoin_script(script)
-    #     return super().hashX_from_script(address_script)
-    #
-    # @classmethod
-    # def sys_hashX_from_script(cls, script):
-    #     sys_op_script, address_script = cls.split_syscoin_script(script)
-    #     if sys_op_script is None:
-    #         return None
-    #     return super().hashX_from_script(sys_op_script)
+    @classmethod
+    def get_dropcode_count(cls, op_def):
+        if len(op_def) == 5:
+            return 2
+        else:
+            return 3
+
+    # array of ops that we are looking for
+    syscoin_ops_def = [
+        ALIAS_NEW_O, ALIAS_ACTIVATE_O, ALIAS_UPDATE_O,
+        ASSET_ACTIVATE_O, ASSET_UPDATE_O, ASSET_TRANSFER_O, ASSET_SEND_O, ASSETA_SEND_O
+    ]
+
+    @classmethod
+    def script_to_bytes(cls, ops):
+        bytea = bytearray()
+        for op in ops:
+            if isinstance(op, tuple):
+                for j in op:
+                    if isinstance(j, bytes):
+                        bytea.extend(j)
+                    else:
+                        bytea.append(j)
+            else:
+                bytea.append(op)
+        return bytes(bytea)
+
+    @classmethod
+    def split_syscoin_script(cls, script):
+        try:
+            ops = Script.get_ops(script)
+        except ScriptError:
+            return None, script
+
+        match = _match_ops
+
+        script_pushdata = matching_opdef = None
+
+        # conveniently, all the above syscoin ops have the same format - syscoin op, service op, data, 2DROP, DROP
+        # the following if statement matches the script stack against a list of syscoin script templates. if one
+        # matches it means we have found a syscoin transaction and need to to further processing to extract the
+        # address script from the script
+        for el in cls.syscoin_ops_def:
+            if match(ops[:len(el)], el):
+                matching_opdef = el
+                script_pushdata = ops[2:len(el)-cls.get_dropcode_count(matching_opdef)]
+
+        # if op_type is None then this isn't a Syscoin transaction and we can bail
+        if matching_opdef is None:
+            return None, script
+
+        # Find the end position of the name data
+        n = 0
+        for i in range(len(matching_opdef)):
+            # Content of this loop is copied from Script.get_ops's loop
+            op = script[n]
+            n += 1
+
+            if op <= OpCodes.OP_PUSHDATA4:
+                # Raw bytes follow
+                if op < OpCodes.OP_PUSHDATA1:
+                    dlen = op
+                elif op == OpCodes.OP_PUSHDATA1:
+                    dlen = script[n]
+                    n += 1
+                elif op == OpCodes.OP_PUSHDATA2:
+                    dlen, = struct.unpack('<H', script[n: n + 2])
+                    n += 2
+                else:
+                    dlen, = struct.unpack('<I', script[n: n + 4])
+                    n += 4
+                if n + dlen > len(script):
+                    raise IndexError
+                n += dlen
+
+        # Strip the syscoin data to yield the address script
+        address_script = script[n:]
+
+        if script_pushdata is None:
+            return None, address_script
+
+        sys_script_out = ops[:len(matching_opdef)]
+
+        return cls.script_to_bytes(sys_script_out), address_script
+
+    @classmethod
+    def hashX_from_script(cls, script):
+        sys_op_script, address_script = cls.split_syscoin_script(script)
+        return super().hashX_from_script(address_script)
+
+    @classmethod
+    def sys_hashX_from_script(cls, script):
+        sys_op_script, address_script = cls.split_syscoin_script(script)
+        if sys_op_script is None:
+            return None
+        return super().hashX_from_script(sys_op_script)
 
 
 class SyscoinTestnet(Syscoin):

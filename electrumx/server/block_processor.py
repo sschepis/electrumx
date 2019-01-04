@@ -464,7 +464,6 @@ class BlockProcessor(object):
             self.db.tx_counts.pop()
 
         self.logger.info('backed up to height {:,d}'.format(self.height))
-        self.backup_flush()
 
     def backup_txs(self, txs):
         # Prevout values, in order down the block (coinbase first if present)
@@ -716,32 +715,32 @@ class NamecoinBlockProcessor(BlockProcessor):
 
 
 class SyscoinBlockProcessor(BlockProcessor):
-    pass
-    # def advance_txs(self, txs):
-    #     result = super().advance_txs(txs)
-    #
-    #     tx_num = self.tx_count - len(txs)
-    #     update_touched = self.touched.update
-    #     hash_xs_by_tx = []
-    #
-    #     for tx, tx_hash in txs:
-    #
-    #         hash_xs = []
-    #
-    #         # Add the new UTXOs and associate them with the name script
-    #         for idx, txout in enumerate(tx.outputs):
-    #             # Get the hashX of the name script.  Ignore non-name scripts.
-    #             hash_x = self.coin.sys_hashX_from_script(txout.pk_script)
-    #             if hash_x:
-    #                 hash_xs.append(hash_x)
-    #
-    #         hash_xs_by_tx.append(hash_xs)
-    #         update_touched(hash_xs)
-    #         tx_num += 1
-    #
-    #     self.db.history.add_unflushed(hash_xs_by_tx, self.tx_count - len(txs))
-    #
-    #     return result
+
+    def advance_txs(self, txs):
+        result = super().advance_txs(txs)
+
+        script_sys_hash_x = self.coin.sys_hashX_from_script
+        update_touched = self.touched.update
+        hash_xs_by_tx = []
+        append_hash_xs = hash_xs_by_tx.append
+
+        for tx, tx_hash in txs:
+            hash_xs = []
+            append_hash_x = hash_xs.append
+
+            # Add the new UTXOs and associate them with the syscoin script
+            for idx, txout in enumerate(tx.outputs):
+                # Get the hashX of the syscoin script.  Ignore non-syscoin scripts.
+                hash_x = script_sys_hash_x(txout.pk_script)
+                if hash_x:
+                    append_hash_x(hash_x)
+
+            append_hash_xs(hash_xs)
+            update_touched(hash_xs)
+
+        self.db.history.add_unflushed(hash_xs_by_tx, self.tx_count - len(txs))
+
+        return result
 
 
 class LTORBlockProcessor(BlockProcessor):

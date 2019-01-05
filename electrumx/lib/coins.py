@@ -2577,6 +2577,13 @@ class Syscoin(AuxPowMixin, Coin):
 
     OP_1 = 0x51
 
+    # Opcode sequences for alias operations
+    ALIAS_NEW_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    ALIAS_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, -1, -1, -1,
+                        OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
+    ALIAS_UPDATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_UPDATE - 1, -1, -1, -1, -1,
+                      OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
+
     # Opcode sequences for asset operations
     ASSET_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
     ASSET_UPDATE_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_UPDATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
@@ -2584,12 +2591,16 @@ class Syscoin(AuxPowMixin, Coin):
     ASSET_SEND_O = [OP_1 + OP_SYSCOIN_ASSET - 1, OP_1 + OP_ASSET_SEND - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
     ASSETA_SEND_O = [OP_1 + OP_SYSCOIN_ASSETA - 1, OP_1 + OP_ASSETA_SEND - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
 
-    # Opcode sequences for alias operations
-    ALIAS_NEW_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
-    ALIAS_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, -1, -1, -1,
-                        OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
-    ALIAS_UPDATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_UPDATE - 1, -1, -1, -1, -1,
-                      OpCodes.OP_2DROP, OpCodes.OP_2DROP, OpCodes.OP_2DROP]
+    # Opcode sequences for offer operations
+    OFFER_ACTIVATE_O = [OP_1 + OP_SYSCOIN_OFFER - 1, OP_1 + OP_OFFER_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    OFFER_UPDATE_O = [OP_1 + OP_SYSCOIN_OFFER - 1, OP_1 + OP_OFFER_UPDATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+
+    # Opcode sequences for certificate operations
+    CERT_ACTIVATE_O = [OP_1 + OP_SYSCOIN_CERT - 1, OP_1 + OP_CERT_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    CERT_UPDATE_O = [OP_1 + OP_SYSCOIN_CERT - 1, OP_1 + OP_CERT_UPDATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+    CERT_TRANSFER_O = [OP_1 + OP_SYSCOIN_CERT - 1, OP_1 + OP_CERT_TRANSFER - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
+
+    OP_RETURN_DATA_O = [OP_RETURN, -1]
 
     @classmethod
     def get_dropcode_count(cls, op_def):
@@ -2601,7 +2612,10 @@ class Syscoin(AuxPowMixin, Coin):
     # array of ops that we are looking for
     syscoin_ops_def = [
         ALIAS_NEW_O, ALIAS_ACTIVATE_O, ALIAS_UPDATE_O,
-        ASSET_ACTIVATE_O, ASSET_UPDATE_O, ASSET_TRANSFER_O, ASSET_SEND_O, ASSETA_SEND_O
+        ASSET_ACTIVATE_O, ASSET_UPDATE_O, ASSET_TRANSFER_O, ASSET_SEND_O, ASSETA_SEND_O,
+        OFFER_ACTIVATE_O, OFFER_UPDATE_O,
+        CERT_ACTIVATE_O, CERT_UPDATE_O, CERT_TRANSFER_O,
+        OP_RETURN_DATA_O
     ]
 
     @classmethod
@@ -2680,6 +2694,11 @@ class Syscoin(AuxPowMixin, Coin):
     def hashX_from_script(cls, script):
         sys_op_script, address_script = cls.split_syscoin_script(script)
         return super().hashX_from_script(address_script)
+
+    @classmethod
+    def address_from_script(cls, script):
+        name_op_script, address_script = cls.split_syscoin_script(script)
+        return super().address_from_script(address_script)
 
     @classmethod
     def sys_hashX_from_script(cls, script):

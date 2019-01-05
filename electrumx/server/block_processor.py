@@ -427,6 +427,7 @@ class BlockProcessor(object):
                     append_hashX(hashX)
                     put_utxo(tx_hash + s_pack('<H', idx),
                              hashX + tx_numb + s_pack('<Q', txout.value))
+                    self.logger.info('added UTXO for {} - {:,d}'.format(hash_to_hex_str(tx_hash), idx))
 
             append_hashXs(hashXs)
             update_touched(hashXs)
@@ -719,26 +720,26 @@ class SyscoinBlockProcessor(BlockProcessor):
     def advance_txs(self, txs):
         result = super().advance_txs(txs)
 
-        script_sys_hash_x = self.coin.sys_hashX_from_script
-        update_touched = self.touched.update
-        hash_xs_by_tx = []
-        append_hash_xs = hash_xs_by_tx.append
-
-        for tx, tx_hash in txs:
-            hash_xs = []
-            append_hash_x = hash_xs.append
-
-            # Add the new UTXOs and associate them with the syscoin script
-            for idx, txout in enumerate(tx.outputs):
-                # Get the hashX of the syscoin script.  Ignore non-syscoin scripts.
-                hash_x = script_sys_hash_x(txout.pk_script)
-                if hash_x:
-                    append_hash_x(hash_x)
-
-            append_hash_xs(hash_xs)
-            update_touched(hash_xs)
-
-        self.db.history.add_unflushed(hash_xs_by_tx, self.tx_count - len(txs))
+        # script_sys_hash_x = self.coin.sys_hashX_from_script
+        # update_touched = self.touched.update
+        # hash_xs_by_tx = []
+        # append_hash_xs = hash_xs_by_tx.append
+        #
+        # for tx, tx_hash in txs:
+        #     hash_xs = []
+        #     append_hash_x = hash_xs.append
+        #
+        #     # Add the new UTXOs and associate them with the syscoin script
+        #     for idx, txout in enumerate(tx.outputs):
+        #         # Get the hashX of the syscoin script.  Ignore non-syscoin scripts.
+        #         hash_x = script_sys_hash_x(txout.pk_script)
+        #         if hash_x:
+        #             append_hash_x(hash_x)
+        #
+        #     append_hash_xs(hash_xs)
+        #     update_touched(hash_xs)
+        #
+        # self.db.history.add_unflushed(hash_xs_by_tx, self.tx_count - len(txs))
 
         return result
 

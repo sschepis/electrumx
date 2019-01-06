@@ -2534,6 +2534,7 @@ class Syscoin(AuxPowMixin, Coin):
     REORG_LIMIT = 2000
 
     BLOCK_PROCESSOR = block_proc.SyscoinBlockProcessor
+    DESERIALIZER = lib_tx.DeserializerSyscoin
 
     # alias service
     OP_ALIAS_ACTIVATE = 0x01

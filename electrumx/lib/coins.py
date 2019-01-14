@@ -2578,6 +2578,8 @@ class Syscoin(AuxPowMixin, Coin):
 
     OP_1 = 0x51
 
+    SYSCOIN_TX_VERSION = 0x7400
+
     # Opcode sequences for alias operations
     ALIAS_NEW_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, OpCodes.OP_2DROP, OpCodes.OP_DROP]
     ALIAS_ACTIVATE_O = [OP_1 + OP_SYSCOIN_ALIAS - 1, OP_1 + OP_ALIAS_ACTIVATE - 1, -1, -1, -1, -1,
@@ -2618,6 +2620,61 @@ class Syscoin(AuxPowMixin, Coin):
         CERT_ACTIVATE_O, CERT_UPDATE_O, CERT_TRANSFER_O,
         OP_RETURN_DATA_O
     ]
+
+    syscoin_asset_ops_def = [
+        ASSET_ACTIVATE_O, ASSET_UPDATE_O, ASSET_TRANSFER_O, ASSET_SEND_O, ASSETA_SEND_O,
+    ]
+
+    @classmethod
+    def block(cls, raw_block, height):
+        '''Return a Block namedtuple given a raw block and its height.'''
+        header = cls.block_header(raw_block, height)
+
+        has_syscoin_tx = False
+        txs = cls.DESERIALIZER(raw_block, start=len(header)).read_tx_block()
+        for tx, tx_hash in txs:
+            if tx.version == cls.SYSCOIN_TX_VERSION:
+                has_syscoin_tx = True
+                break
+
+        if not has_syscoin_tx:
+            return Block(raw_block, header, txs)
+
+        txs_out = []
+        txs_opret = cls.DESERIALIZER(raw_block, start=len(header), ignore_opreturn=False).read_tx_block()
+
+        for i in range(txs):
+            txn1, txn1_hash = txs[i]
+            txn2, txn2_hash = txs_opret[i]
+
+            if txn1.version != cls.SYSCOIN_TX_VERSION:
+                txs_out.append(txn1)
+                continue
+
+            for idx, txout in enumerate(txn1.outputs):
+                if cls.is_asset_script(txout.pk_script):
+                    txs_out.append(txn2)
+                else:
+                    txs_out.append(txn1)
+
+        return Block(raw_block, header, txs_out)
+
+    @classmethod
+    def is_asset_script(cls, script):
+        try:
+            ops = Script.get_ops(script)
+        except ScriptError:
+            return None, script
+
+        match = _match_ops
+        asset_op_found = False
+
+        for el in cls.syscoin_asset_ops_def:
+            if match(ops[:len(el)], el):
+                asset_op_found = True
+                break
+
+        return asset_op_found
 
     @classmethod
     def script_to_bytes(cls, ops):
